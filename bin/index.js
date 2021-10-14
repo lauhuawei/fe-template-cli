@@ -13,16 +13,16 @@ const TplPath = path.resolve(__dirname, "../template")
 switch (args[0]) {
   case undefined:
   case 'pull': // 获取模板
-    pullTpl()
+    pullTpl(args[1])
     break;
   case 'list': // 查看模板列表
     listTpl()
     break;
   case 'push': // 新增模板
-    pushTpl()
+    pushTpl(args[1])
     break;
   case 'del': // 新增模板
-    delTpl()
+    delTpl(args[1])
     break;
   default:
     console.log('请输入正确的指令:', chalk.green('pull、push、del or null'))
@@ -36,6 +36,30 @@ async function readTplList() {
     console.error(error)
   }
 }
+// 选择模板
+async function choicesTpl({ message = '请选择' }) {
+  try {
+    const files = await readTplList()
+    if (!files.length) {
+      console.log('文件模板为空，请先添加模板');
+      return
+    }
+    const choices = files.map((item, index) => ({
+      name: `${index} ${item}`,
+      value: item
+    }))
+    const ans =  await inquirer.prompt({
+      type: 'list',
+      name: 'result',
+      message: message,
+      choices: choices
+    })
+    return ans.result
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 查看模板
 async function listTpl() {
   try {
@@ -50,27 +74,10 @@ async function listTpl() {
   }
 }
 // 拉取模板
-async function pullTpl() {
-  try {
-    const files = await readTplList()
-    if (!files.length) {
-      console.log('文件模板为空，请先添加模板');
-      return
-    }
-    let basename = args[1]
-    if (!basename) {
-      const choices = files.map((item, index) => ({
-        name: `${index} ${item}`,
-        value: item
-      }))
-      const ans = await inquirer.prompt({
-        type: 'list',
-        name: 'tpl',
-        message: '请选择模板',
-        choices: choices
-      })
-      basename = ans.tpl
-    }    
+async function pullTpl(tplName) {
+  try {  
+    let basename = tplName || await choicesTpl({message:'请选择要获取的模板'})
+    if(!basename) return
     await fs.copy(path.join(TplPath, basename), path.join(cwd(), basename))
     console.log('success!')
   } catch (error) {
@@ -78,12 +85,12 @@ async function pullTpl() {
   }
 }
 // 新增模板
-async function pushTpl() {
+async function pushTpl(filePath) {
   try {
-    const addFilePath = args[1] ? path.join(cwd(), args[1]) : cwd();
+    const addFilePath = filePath ? path.join(cwd(), filePath) : cwd();
     const targetPath = path.join(TplPath, name || path.basename(addFilePath))
     let canAdd = true
-    if (!args[1]) {
+    if (!filePath) {
       const ans = await inquirer.prompt({
         type: 'confirm',
         name: 'isAdd',
@@ -101,27 +108,11 @@ async function pushTpl() {
   }
 }
 // 删除模板
-async function delTpl() {
+async function delTpl(tplName) {
   try {
-    const files = await readTplList()
-    if (!files.length) {
-      console.log('文件模板为空');
-      return
-    }
-    const choices = files.map((item, index) => ({
-      name: `${index} ${item}`,
-      value: item
-    }))
-
-    const ans = await inquirer.prompt({
-      type: 'list',
-      name: 'tpl',
-      message: '请选择需要删除的模板',
-      choices: choices
-    })
-    const src = path.join(TplPath, ans.tpl)
-    console.log(src)
-    await fs.remove(src)
+    const basename = tplName || await choicesTpl({message:'请选择需要删除的模板'})
+    if(!basename) return
+    await fs.remove(path.join(TplPath, basename))
     console.log('success!')
   } catch (error) {
     console.error(error)
